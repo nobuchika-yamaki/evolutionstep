@@ -1,0 +1,83 @@
+import numpy as np
+import pandas as pd
+from scipy.stats import linregress
+
+# =========================
+# Load data
+# =========================
+sweep = pd.read_csv("sweep_results.csv")
+ts = pd.read_csv("time_series.csv")
+recovery = pd.read_csv("recovery_times.csv")
+
+# =========================
+# 1. Transition latency statistics
+# =========================
+latency = sweep["latency"].values
+
+mean_tau = np.mean(latency)
+std_tau = np.std(latency, ddof=1)
+min_tau = np.min(latency)
+max_tau = np.max(latency)
+
+print("=== Transition latency statistics ===")
+print(f"Mean latency: {mean_tau:.3f}")
+print(f"Std latency: {std_tau:.3f}")
+print(f"Min latency: {min_tau:.3f}")
+print(f"Max latency: {max_tau:.3f}")
+print()
+
+# =========================
+# 2. Scaling with adaptation rate epsilon
+# =========================
+eps_group = sweep.groupby("eps")["latency"].mean().reset_index()
+
+log_eps = np.log10(eps_group["eps"].values)
+log_tau_eps = np.log10(eps_group["latency"].values)
+
+slope_eps, intercept_eps, r_eps, _, _ = linregress(log_eps, log_tau_eps)
+
+print("=== Scaling with adaptation rate epsilon ===")
+print(f"Scaling exponent a_eps: {slope_eps:.3f}")
+print(f"Correlation coefficient r: {r_eps:.3f}")
+print()
+
+# =========================
+# 3. Scaling with noise intensity sigma
+# =========================
+sig_group = sweep.groupby("sigma")["latency"].mean().reset_index()
+
+log_sig = np.log10(sig_group["sigma"].values)
+log_tau_sig = np.log10(sig_group["latency"].values)
+
+slope_sig, intercept_sig, r_sig, _, _ = linregress(log_sig, log_tau_sig)
+
+print("=== Scaling with noise intensity sigma ===")
+print(f"Scaling exponent a_sigma: {slope_sig:.3f}")
+print(f"Correlation coefficient r: {r_sig:.3f}")
+print()
+
+# =========================
+# 4. Critical slowing down indicators
+# =========================
+var_x = ts["variance_x"].values
+ac1_x = ts["autocorr_lag1_x"].values
+
+max_var = np.nanmax(var_x)
+max_ac1 = np.nanmax(ac1_x)
+
+print("=== Critical slowing down indicators ===")
+print(f"Max variance of x: {max_var:.4f}")
+print(f"Max lag-1 autocorrelation of x: {max_ac1:.4f}")
+print()
+
+# =========================
+# 5. Recovery time divergence
+# =========================
+valid_recovery = recovery["recovery_time"].replace([np.inf, -np.inf], np.nan)
+
+num_divergent = valid_recovery.isna().sum()
+total_trials = len(valid_recovery)
+
+print("=== Recovery time analysis ===")
+print(f"Divergent or undefined recovery times: {num_divergent} / {total_trials}")
+print(f"Fraction divergent: {num_divergent / total_trials:.3f}")
